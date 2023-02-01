@@ -8,10 +8,13 @@ package {
     import flash.net.URLRequest;
     import flash.utils.describeType;
     import flash.display.DisplayObjectContainer;
-    import flash.desktop.NativeApplication;
     import flash.net.Socket;
-    import com.amanitadesign.steam.FRESteamWorks;
     import flash.utils.ByteArray;
+
+    CONFIG::steam {
+        import flash.desktop.NativeApplication;
+        import com.amanitadesign.steam.FRESteamWorks;
+    }
 
     public class TFMProxyLoader extends Sprite {
         private static var PROXY_INFO: String = "localhost:11801";
@@ -19,20 +22,28 @@ package {
         private var final_loader: Loader;
 
         private var connection_class_info: *;
+        private var main_socket: Socket;
 
-        private var steamworks: FRESteamWorks;
-        private var steam_okay: Boolean;
+        private var main_address: String;
+        private var main_ports:   Array = new Array();
+
+        CONFIG::steam {
+            private var steamworks: FRESteamWorks;
+            private var steam_okay: Boolean;
+        }
 
         public function TFMProxyLoader() {
             super();
 
-            NativeApplication.nativeApplication.addEventListener(Event.EXITING, this.game_exiting);
+            CONFIG::steam {
+                NativeApplication.nativeApplication.addEventListener(Event.EXITING, this.game_exiting);
 
-            try {
-                this.steamworks = new FRESteamWorks();
-                this.steam_okay = this.steamworks.init();
-            } catch (error: Error) {
-                /* ... */
+                try {
+                    this.steamworks = new FRESteamWorks();
+                    this.steam_okay = this.steamworks.init();
+                } catch (error: Error) {
+                    /* ... */
+                }
             }
 
             var loader: * = new URLLoader();
@@ -47,9 +58,11 @@ package {
             loader.load(new URLRequest("http://www.transformice.com/Transformice.swf?d=" + new Date().getTime()));
         }
 
-        private function game_exiting(event: Event) : void {
-            if (this.steamworks != null) {
-                this.steamworks.dispose();
+        CONFIG::steam {
+            private function game_exiting(event: Event) : void {
+                if (this.steamworks != null) {
+                    this.steamworks.dispose();
+                }
             }
         }
 
@@ -65,26 +78,30 @@ package {
         }
 
         private function game_code_loaded(event: Event) : void {
-            this.addEventListener(Event.ENTER_FRAME, this.init_steam_info);
+            CONFIG::steam {
+                this.addEventListener(Event.ENTER_FRAME, this.init_steam_info);
+            }
 
             this.addEventListener(Event.ENTER_FRAME, this.get_connection_class_info);
         }
 
-        private function init_steam_info(event: Event) : void {
-            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+        CONFIG::steam {
+            private function init_steam_info(event: Event) : void {
+                var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
 
-            if (game.numChildren == 0) {
-                return;
-            }
+                if (game.numChildren == 0) {
+                    return;
+                }
 
-            this.removeEventListener(Event.ENTER_FRAME, this.init_steam_info);
+                this.removeEventListener(Event.ENTER_FRAME, this.init_steam_info);
 
-            var document: * = game.getChildAt(0);
+                var document: * = game.getChildAt(0);
 
-            try {
-                document.x_proxySteam.x_initialisation(this.steamworks);
-            } catch (error: Error) {
-                /* ... */
+                try {
+                    document.x_proxySteam.x_initialisation(this.steamworks);
+                } catch (error: Error) {
+                    /* ... */
+                }
             }
         }
 
@@ -117,48 +134,30 @@ package {
             return names;
         }
 
-        private static function get_serverbound_packet_class_name(description: XML) : String {
-            for each (var parameter: * in description.elements("factory").elements("constructor").elements("parameter")) {
-                if (parameter.attribute("index") == 3) {
-                    return parameter.attribute("type");
+        private static function get_address_property(description: XML) : String {
+            for each (var variable: * in description.elements("factory").elements("variable")) {
+                /*
+                    NOTE: There are two non-static properties which
+                    are strings, but they both hold the same value.
+                */
+                if (variable.attribute("type") == "String") {
+                    return variable.attribute("name");
                 }
             }
 
             return null;
         }
 
-        private function get_serverbound_packet_info(klass: Class) : * {
-            var buffer_prop_name: String = null;
+        private static function get_possible_ports_properties(description: XML) : Array {
+            var possible_names: * = new Array();
 
-            for each (var variable: * in describeType(klass).elements("factory").elements("variable")) {
-                if (variable.attribute("type") == "flash.utils::ByteArray") {
-                    buffer_prop_name = variable.attribute("name");
-
-                    break;
+            for each (var variable: * in description.elements("factory").elements("variable")) {
+                if (variable.attribute("type") == "Array") {
+                    possible_names.push(variable.attribute("name"));
                 }
             }
 
-            return {
-                klass: klass,
-                buffer_prop_name: buffer_prop_name
-            }
-        }
-
-        private static function get_send_packet_method_name(description: XML, serverbound_name: String) : String {
-            for each (var method: * in description.elements("factory").elements("method")) {
-                var parameters: * = method.elements("parameter");
-                if (parameters.length() != 1) {
-                    continue;
-                }
-
-                for each (var parameter: * in parameters) {
-                    if (parameter.attribute("type") == serverbound_name) {
-                        return method.attribute("name");
-                    }
-                }
-            }
-
-            return null;
+            return possible_names;
         }
 
         private function get_connection_class_info(event: Event) : void {
@@ -198,12 +197,16 @@ package {
                     continue;
                 }
 
-                var instance_names: * = get_connection_instance_names(description);
+                var address_prop_name:         * = get_address_property(description);
+                var possible_ports_prop_names: * = get_possible_ports_properties(description);
+                var instance_names:            * = get_connection_instance_names(description);
 
                 this.connection_class_info = {
-                    klass: klass,
-                    socket_prop_name: socket_prop_name,
-                    instance_names: instance_names
+                    klass:                     klass,
+                    socket_prop_name:          socket_prop_name,
+                    address_prop_name:         address_prop_name,
+                    possible_ports_prop_names: possible_ports_prop_names,
+                    instance_names:            instance_names
                 };
 
                 this.addEventListener(Event.ENTER_FRAME, this.try_replace_connection);
@@ -244,9 +247,112 @@ package {
             return null;
         }
 
+        private function send_packet(packet_data: ByteArray) : void {
+            var external_data: * = new ByteArray();
+
+            /* Write packet length. */
+            var length: * = int(packet_data.length);
+            while (true) {
+                var to_write: * = (length & 0x7F);
+
+                length >>>= 7;
+                if (length != 0) {
+                    to_write |= 0x80;
+                }
+
+                external_data.writeByte(to_write);
+
+                if (length == 0) {
+                    break;
+                }
+            }
+
+            /*
+                Write dummy fingerprint.
+
+                NOTE: We can't just use the normal send
+                packet method because then the fingerprint
+                will get desynced and the server will
+                kick us. This could also be managed by
+                sending this packet before the handshake packet,
+                but because of the game registering their
+                connect listener with the maximum priority,
+                we would need to do stuff that's worse than
+                this to do that. This is the cleanest option.
+            */
+            external_data.writeByte(0);
+
+            this.main_socket.writeBytes(external_data);
+            this.main_socket.writeBytes(packet_data);
+            this.main_socket.flush();
+        }
+
+        private function send_packet_key_sources() : void {
+            var packet_key_sources: * = get_packet_key_sources();
+
+            var packet_data: * = new ByteArray();
+
+            /* Parent ID. */
+            packet_data.writeByte(0xFF);
+            packet_data.writeByte(0xFF);
+
+            /* Extension ID. */
+            packet_data.writeUTF("packet_key_sources");
+
+            for each (var num: * in packet_key_sources) {
+                /*
+                    NOTE: I've never seen a source number exceed the unsigned
+                    byte range. Also even though we use `writeByte`, it will
+                    correctly write unsigned bytes as well, and consumers of
+                    this packet should interpret them as unsigned.
+                */
+                packet_data.writeByte(num);
+            }
+
+            this.send_packet(packet_data);
+        }
+
+        private function send_main_server_info() : void {
+            var packet_data: * = new ByteArray();
+
+            /* Parent ID. */
+            packet_data.writeByte(0xFF);
+            packet_data.writeByte(0xFF);
+
+            /* Extension ID. */
+            packet_data.writeUTF("main_server_info");
+
+            packet_data.writeUTF(this.main_address);
+
+            for (var i: * = 0; i < this.main_ports.length; ++i) {
+                /*
+                    NOTE: Consumers of this packet
+                    should read the ports as unsigned.
+
+                    Also note that these ports will be missing the
+                    port that the client actually tried to connect
+                    to. As far as I can tell, there's no way to
+                    recover this port without letting the client
+                    connect to the real server, which would send
+                    the handshake packet, which is undesirable.
+                    Therefore proxies should be able to handle
+                    when there are no ports sent.
+                */
+                packet_data.writeShort(this.main_ports[i]);
+            }
+
+            this.send_packet(packet_data);
+        }
+
+        private function send_initial_packets() : void {
+            this.send_packet_key_sources();
+            this.send_main_server_info();
+        }
+
         private function try_replace_connection(event: Event) : void {
-            var klass:            * = this.connection_class_info.klass;
-            var socket_prop_name: * = this.connection_class_info.socket_prop_name;
+            var klass:             * = this.connection_class_info.klass;
+            var socket_prop_name:  * = this.connection_class_info.socket_prop_name;
+            var address_prop_name: * = this.connection_class_info.address_prop_name;
 
             var closed_socket: * = false;
             for each (var name: * in this.connection_class_info.instance_names) {
@@ -256,8 +362,24 @@ package {
                 }
 
                 if (!closed_socket) {
-                    instance[socket_prop_name].close();
+                    var socket: * = instance[socket_prop_name];
 
+                    this.main_address = instance[address_prop_name];
+
+                    for each (var ports_name: * in this.connection_class_info.possible_ports_prop_names) {
+                        var possible_ports: * = instance[ports_name];
+                        if (possible_ports.length <= 0 || possible_ports[0] == null) {
+                            continue;
+                        }
+
+                        for each (var port: * in possible_ports) {
+                            this.main_ports.push(port)
+                        }
+
+                        break;
+                    }
+
+                    socket.close();
                     instance.reset();
 
                     closed_socket = true;
@@ -267,70 +389,10 @@ package {
             }
 
             var main_connection: * = new klass(PROXY_INFO, false);
-            var socket: Socket   = main_connection[socket_prop_name];
 
-            socket.addEventListener(Event.CONNECT, function (event: Event) : void {
-                /* Send over the packet key sources to the proxy after the handshake packet. */
+            this.main_socket = main_connection[socket_prop_name];
 
-                var packet_key_sources: * = get_packet_key_sources();
-
-                var packet_data: * = new ByteArray();
-
-                /* Parent ID. */
-                packet_data.writeByte(0xFF);
-                packet_data.writeByte(0xFF);
-
-                /* Extension ID. */
-                packet_data.writeUTF("packet_key_sources");
-
-                for each (var num: * in packet_key_sources) {
-                    /*
-                        NOTE: I've never seen a source number exceed the unsigned
-                        byte range. Also even though we use `writeByte`, it will
-                        correctly write unsigned bytes as well, and consumers of
-                        this packet should interpret them as unsigned.
-                    */
-                    packet_data.writeByte(num);
-                }
-
-                var external_data: * = new ByteArray();
-
-                /* Write packet length. */
-                var length: * = int(packet_data.length);
-                while (true) {
-                    var to_write: * = (length & 0x7F);
-
-                    length >>>= 7;
-                    if (length != 0) {
-                        to_write |= 0x80;
-                    }
-
-                    external_data.writeByte(to_write);
-
-                    if (length == 0) {
-                        break;
-                    }
-                }
-
-                /*
-                    Write dummy fingerprint.
-
-                    NOTE: We can't just use the normal send
-                    packet method because then the fingerprint
-                    will get desynced and the server will
-                    kick us. This could also be managed by
-                    sending this packet before the handshake packet,
-                    but because of the game registering their
-                    connect listener with the maximum priority,
-                    we would need to do stuff that's worse than
-                    this to do that. This is the cleanest option.
-                */
-                external_data.writeByte(0);
-
-                socket.writeBytes(external_data);
-                socket.writeBytes(packet_data);
-                socket.flush();
-            });
+            main_connection[socket_prop_name] = new SocketWrapper(this.main_socket, this.send_initial_packets);
 
             this.removeEventListener(Event.ENTER_FRAME, this.try_replace_connection);
         }

@@ -11,7 +11,14 @@
             "height": 600
         },
 
-        "external-library-path": ["lib"]
+        "external-library-path": ["lib"],
+
+        "define": [
+            {
+                "name": "CONFIG::steam",
+                "value": true
+            }
+        ]
     },
 
     "files": [
