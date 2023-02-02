@@ -6,7 +6,7 @@ A custom loader for the Transformice client which connects to a local proxy.
 
 To build, you should use the [asconfig.json](https://github.com/friedkeenan/tfm-proxy-loader/blob/main/asconfig.json) file to compile the `TFMProxyLoader.swf` file. This can be done with [vscode-as3mxml](https://github.com/BowlerHatLLC/vscode-as3mxml) or [asconfigc](https://www.npmjs.com/package/asconfigc).
 
-By default, you must have an `.swc` file of [FRESteamWorks](https://github.com/Ventero/FRESteamWorks) in a folder named `lib` in order to compile. This is needed so that the loader can initialize the Steam info that Transformice uses. If you wish to forgo this Steam info initialization, you may build without it by changing the value of the `CONFIG::steam` define to `false`. You will still need an empty `lib` folder however.
+By default, you must have an `.swc` file of [FRESteamWorks](https://github.com/Ventero/FRESteamWorks) in the `lib` folder in order to compile. This is needed so that the loader can initialize the Steam info that Transformice uses. If you wish to forgo this Steam info initialization, you may build without it by changing the value of the `CONFIG::steam` define to `false`.
 
 If you wish to save yourself the hassle, then there is also a pre-built SWF (with Steam enabled) in the [releases](https://github.com/friedkeenan/tfm-proxy-loader/releases) of this repo.
 
