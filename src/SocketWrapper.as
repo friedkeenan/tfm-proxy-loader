@@ -14,7 +14,13 @@ package {
             this.before_handshake_callback = before_handshake_callback;
         }
 
-        /* NOTE: We only override what is actually used by the game. */
+        /*
+            NOTE: We only override what is actually used by the game.
+
+            We could just override a subset of these things because we
+            end up unwrapping the socket later, but I'll leave all of
+            them in case we ever want to do more.
+        */
 
         public override function get connected() : Boolean {
             return this.wrapped.connected;

@@ -22,6 +22,7 @@ package {
         private var final_loader: Loader;
 
         private var connection_class_info: *;
+        private var main_connection: *;
         private var main_socket: Socket;
 
         private var main_address: String;
@@ -344,7 +345,10 @@ package {
             this.send_packet(packet_data);
         }
 
-        private function send_initial_packets() : void {
+        private function before_handshake() : void {
+            /* Unwrap the socket. */
+            this.main_connection[this.connection_class_info.socket_prop_name] = this.main_socket;
+
             this.send_packet_key_sources();
             this.send_main_server_info();
         }
@@ -388,11 +392,10 @@ package {
                 klass[name] = null;
             }
 
-            var main_connection: * = new klass(PROXY_INFO, false);
+            this.main_connection = new klass(PROXY_INFO, false);
+            this.main_socket     = this.main_connection[socket_prop_name];
 
-            this.main_socket = main_connection[socket_prop_name];
-
-            main_connection[socket_prop_name] = new SocketWrapper(this.main_socket, this.send_initial_packets);
+            this.main_connection[socket_prop_name] = new SocketWrapper(this.main_socket, this.before_handshake);
 
             this.removeEventListener(Event.ENTER_FRAME, this.try_replace_connection);
         }
