@@ -11,10 +11,14 @@ package {
     import flash.net.Socket;
     import flash.utils.ByteArray;
 
-    CONFIG::steam {
-        import flash.desktop.NativeApplication;
-        import com.amanitadesign.steam.FRESteamWorks;
-    }
+    /*
+        NOTE: We always import 'NativeApplication'
+        even though it is only available for AIR
+        applications because it actually only would
+        cause an issue if it gets *used* on non-AIR
+        applications.
+    */
+    import flash.desktop.NativeApplication;
 
     public class TFMProxyLoader extends Sprite {
         private static var PROXY_INFO: String = "localhost:11801";
@@ -28,19 +32,32 @@ package {
         private var main_address: String;
         private var main_ports:   Array = new Array();
 
-        CONFIG::steam {
-            private var steamworks: FRESteamWorks;
-            private var steam_okay: Boolean;
-        }
+        private var steamworks: Object = null;
+        private var steam_okay: Boolean;
 
         public function TFMProxyLoader() {
             super();
 
-            CONFIG::steam {
-                NativeApplication.nativeApplication.addEventListener(Event.EXITING, this.game_exiting);
+            var steamworks_class: Class = null;
+            try {
+                /*
+                    The Steam version of the game uses the
+                    'FRESteamWorks' library to handle Steam
+                    integration. We do a runtime check to
+                    detect whether it is available to us so
+                    that we can use the same loader for both
+                    Steam and non-Steam environments.
+                */
+                steamworks_class = ApplicationDomain.currentDomain.getDefinition("com.amanitadesign.steam::FRESteamWorks") as Class;
+            } catch (error: ReferenceError) {
+                /* ... */
+            }
+
+            if (steamworks_class != null) {
+                NativeApplication.nativeApplication.addEventListener(Event.EXITING, this.cleanup_steam);
 
                 try {
-                    this.steamworks = new FRESteamWorks();
+                    this.steamworks = new steamworks_class();
                     this.steam_okay = this.steamworks.init();
                 } catch (error: Error) {
                     /* ... */
@@ -59,11 +76,9 @@ package {
             loader.load(new URLRequest("http://www.transformice.com/Transformice.swf?d=" + new Date().getTime()));
         }
 
-        CONFIG::steam {
-            private function game_exiting(event: Event) : void {
-                if (this.steamworks != null) {
-                    this.steamworks.dispose();
-                }
+        private function cleanup_steam(event: Event) : void {
+            if (this.steamworks != null) {
+                this.steamworks.dispose();
             }
         }
 
@@ -79,30 +94,28 @@ package {
         }
 
         private function game_code_loaded(event: Event) : void {
-            CONFIG::steam {
+            if (this.steamworks != null) {
                 this.addEventListener(Event.ENTER_FRAME, this.init_steam_info);
             }
 
             this.addEventListener(Event.ENTER_FRAME, this.get_connection_class_info);
         }
 
-        CONFIG::steam {
-            private function init_steam_info(event: Event) : void {
-                var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+        private function init_steam_info(event: Event) : void {
+            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
 
-                if (game.numChildren == 0) {
-                    return;
-                }
+            if (game.numChildren == 0) {
+                return;
+            }
 
-                this.removeEventListener(Event.ENTER_FRAME, this.init_steam_info);
+            this.removeEventListener(Event.ENTER_FRAME, this.init_steam_info);
 
-                var document: * = game.getChildAt(0);
+            var document: * = game.getChildAt(0);
 
-                try {
-                    document.x_proxySteam.x_initialisation(this.steamworks);
-                } catch (error: Error) {
-                    /* ... */
-                }
+            try {
+                document.x_proxySteam.x_initialisation(this.steamworks);
+            } catch (error: Error) {
+                /* ... */
             }
         }
 
@@ -271,15 +284,16 @@ package {
             /*
                 Write dummy fingerprint.
 
-                NOTE: We can't just use the normal send
-                packet method because then the fingerprint
-                will get desynced and the server will
-                kick us. This could also be managed by
-                sending this packet before the handshake packet,
-                but because of the game registering their
-                connect listener with the maximum priority,
-                we would need to do stuff that's worse than
-                this to do that. This is the cleanest option.
+                NOTE: We could use the game's own
+                send packet method, however that would
+                require identifying more things and
+                a more  funny business than this does.
+
+                But if we *were* to use the game's send
+                packet method then we would be able to
+                write an accurate fingerprint. That
+                doesn't matter though because these packets
+                should never be forwarded on to the server.
             */
             external_data.writeByte(0);
 

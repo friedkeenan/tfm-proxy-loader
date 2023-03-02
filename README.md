@@ -6,13 +6,15 @@ A custom loader for the Transformice client which connects to a local proxy.
 
 To build, you should use the [asconfig.json](https://github.com/friedkeenan/tfm-proxy-loader/blob/main/asconfig.json) file to compile the `TFMProxyLoader.swf` file. This can be done with [vscode-as3mxml](https://github.com/BowlerHatLLC/vscode-as3mxml) or [asconfigc](https://www.npmjs.com/package/asconfigc).
 
-By default, you must have an `.swc` file of [FRESteamWorks](https://github.com/Ventero/FRESteamWorks) in the `lib` folder in order to compile. This is needed so that the loader can initialize the Steam info that Transformice uses. If you wish to forgo this Steam info initialization, you may build without it by changing the value of the `CONFIG::steam` define to `false`.
-
-If you wish to save yourself the hassle, then there is also a pre-built SWF (with Steam enabled) in the [releases](https://github.com/friedkeenan/tfm-proxy-loader/releases) of this repo.
+If you wish to save yourself the hassle, then there is also a pre-built SWF in the [releases](https://github.com/friedkeenan/tfm-proxy-loader/releases) of this repo.
 
 ## Usage
 
-To use this loader, simply open the local files for the Steam version of the game and replace the contained `Transformice.swf` with the `TFMProxyLoader.swf` (renaming it to `Transformice.swf`). By default, the game will try to connect to `localhost` on port `11801`, so you should run a proxy listening there, for instance a proxy from [caseus](https://github.com/friedkeenan/caseus). Then, you should just launch the game normally, and it will connect to the proxy as if connecting to the normal server. From there the proxy can do whatever it wants.
+To use this loader, simply replace the normal SWF you use for the game with the `TFMProxyLoader.swf` file. If using the Steam version of Transformice, this means opening the local files for the game and replacing the contained `Transformice.swf` file with the `TFMProxyLoader.swf` one (renaming it to `Transformice.swf`).
+
+By default, the game will try to connect to `localhost` on port `11801`, so you should run a proxy listening there, for instance a proxy from [caseus](https://github.com/friedkeenan/caseus). Then, you should just launch the game normally, and it will connect to the proxy as if connecting to the normal server. From there the proxy can do whatever it wants.
+
+It is recommended to run the loader as an AIR application (which the Steam version of the game does), because otherwise the game will request a socket policy file for `localhost:11801` (following the normal flow of trying port `843` first and then trying the destination port, `11801`). If you know a way of disabling this behavior please let me know.
 
 ## Extension Packets
 

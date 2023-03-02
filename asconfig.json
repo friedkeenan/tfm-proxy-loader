@@ -9,16 +9,7 @@
         "default-size": {
             "width":  800,
             "height": 600
-        },
-
-        "external-library-path": ["lib"],
-
-        "define": [
-            {
-                "name": "CONFIG::steam",
-                "value": true
-            }
-        ]
+        }
     },
 
     "files": [
