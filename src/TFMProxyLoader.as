@@ -261,6 +261,45 @@ package {
             return null;
         }
 
+        private function get_auth_key() : int {
+            var game:     * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+            var document: * = game.getChildAt(0);
+
+            var description: * = describeType(document);
+            for each (var method: * in description.elements("method")) {
+                /*
+                    The method that ciphers the auth token is the only
+                    one in the document class that is non-static, takes
+                    no parameters, and returns 'int'.
+                */
+
+                if (method.attribute("returnType") != "int") {
+                    continue;
+                }
+
+                if (method.elements("parameter").length() != 0) {
+                    continue;
+                }
+
+                var cipher_method: * = document[method.attribute("name")];
+                if (cipher_method == null) {
+                    continue;
+                }
+
+                /*
+                    NOTE: At this point, the auth token is still '0',
+                    and since ciphering the auth token is equivalent
+                    to a single XOR, and since '0 ^ key == key', we
+                    can get the auth key simply by calling the method.
+                */
+                var auth_key: int = cipher_method.call(document);
+
+                return auth_key;
+            }
+
+            return null;
+        }
+
         private function send_packet(packet_data: ByteArray) : void {
             var external_data: * = new ByteArray();
 
@@ -327,6 +366,23 @@ package {
             this.send_packet(packet_data);
         }
 
+        private function send_auth_key() : void {
+            var auth_key: * = get_auth_key();
+
+            var packet_data: * = new ByteArray();
+
+            /* Parent ID. */
+            packet_data.writeByte(0xFF);
+            packet_data.writeByte(0xFF);
+
+            /* Extension ID. */
+            packet_data.writeUTF("auth_key");
+
+            packet_data.writeInt(auth_key);
+
+            this.send_packet(packet_data);
+        }
+
         private function send_main_server_info() : void {
             var packet_data: * = new ByteArray();
 
@@ -364,6 +420,7 @@ package {
             this.main_connection[this.connection_class_info.socket_prop_name] = this.main_socket;
 
             this.send_packet_key_sources();
+            this.send_auth_key();
             this.send_main_server_info();
         }
 
