@@ -36,6 +36,13 @@ The loader will send an extension packet containing the packet key sources to th
 - Its ID is the string `"packet_key_sources"`.
 - Its body is an array of unsigned bytes, read until the end of the data, each byte being a source number from the packet key sources.
 
+## Auth Key
+
+After sending the packet key sources, the loader will send an extension packet containing the "auth key" used for the login packet. It has the following format:
+
+- Its ID is the string `"auth_key"`.
+- Its body is a single int, corresponding to the value of the auth key.
+
 ## Main Server Info
 
 The loader will also send an extension packet for the main server info, i.e. its address and ports. This packet is sent before the handshake packet. It has the following format:
