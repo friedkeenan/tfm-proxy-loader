@@ -49,5 +49,4 @@ The loader will also send an extension packet for the main server info, i.e. its
 
 - Its ID is the string `"main_server_info"`.
 - Its body starts with a string for the address for which server the client would normally connect to.
-- The rest of the body is an array of unsigned shorts, read until the end of the data, each short being a port the client could've normally connected to.
-    - These ports unfortunately will not include the port that the client actually did try to connect to, as the client does not keep track of it. Thus proxies should be able to handle when they receive *no* ports, such as having a list of fallback ports. This could happen if for whatever reason the game would only try to connect to one port.
+- The rest of the body is an array of unsigned shorts, read until the end of the data, each short being a port that the client could've normally connected to.

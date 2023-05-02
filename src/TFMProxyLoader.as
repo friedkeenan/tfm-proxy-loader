@@ -19,11 +19,14 @@ package {
         applications.
     */
     import flash.desktop.NativeApplication;
+    import flash.system.Capabilities;
 
     public class TFMProxyLoader extends Sprite {
         private static var PROXY_INFO: String = "localhost:11801";
 
         private var final_loader: Loader;
+
+        private var logging_class_info: *;
 
         private var connection_class_info: *;
         private var main_connection: *;
@@ -98,6 +101,7 @@ package {
                 this.addEventListener(Event.ENTER_FRAME, this.init_steam_info);
             }
 
+            this.addEventListener(Event.ENTER_FRAME, this.get_logging_class_info);
             this.addEventListener(Event.ENTER_FRAME, this.get_connection_class_info);
         }
 
@@ -116,6 +120,97 @@ package {
                 document.x_proxySteam.x_initialisation(this.steamworks);
             } catch (error: Error) {
                 /* ... */
+            }
+        }
+
+        private static function is_logging_class(klass: Class, description: XML) : Boolean {
+            /*
+                The logging class is the only class which inherits
+                from 'Sprite' and has a static string variable with
+                certain font names.
+            */
+
+            var extending: * = description.elements("factory").elements("extendsClass");
+            if (extending.length() <= 0) {
+                return false;
+            }
+
+            if (extending[0].attribute("type") != "flash.display::Sprite") {
+                return false;
+            }
+
+            var expected_font_name: * = "Lucida Console";
+            if (Capabilities.os.toLowerCase().indexOf("linux") != -1) {
+                expected_font_name = "Liberation Mono";
+            } else if (Capabilities.os.indexOf("Mac") != -1) {
+                expected_font_name = "Courier New";
+            }
+
+            for each (var variable :* in description.elements("variable")) {
+                if (variable.attribute("type") != "String") {
+                    continue;
+                }
+
+                var object: * = klass[variable.attribute("name")];
+                if (object == expected_font_name) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static function get_logging_instance_prop_name(klass: Class, description: XML) : String {
+            var class_name: * = description.attribute("name");
+
+            for each (var variable: * in description.elements("variable")) {
+                if (variable.attribute("type") == class_name) {
+                    return variable.attribute("name");
+                }
+            }
+
+            return null;
+        }
+
+        private static function get_logging_message_prop_name(klass: Class, description: XML) : String {
+            for each (var variable: * in description.elements("factory").elements("variable")) {
+                if (variable.attribute("type") == "String") {
+                    return variable.attribute("name");
+                }
+            }
+
+            return null;
+        }
+
+        private function get_logging_class_info(event: Event) : void {
+            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+
+            if (game.numChildren == 0) {
+                return;
+            }
+
+            this.removeEventListener(Event.ENTER_FRAME, this.get_logging_class_info);
+
+            var domain: * = game.contentLoaderInfo.applicationDomain;
+            for each(var class_name: String in domain.getQualifiedDefinitionNames()) {
+                var klass: * = domain.getDefinition(class_name);
+                if (klass.constructor != Class) {
+                    continue;
+                }
+
+                var description: * = describeType(klass);
+
+                if (!is_logging_class(klass, description)) {
+                    continue;
+                }
+
+                this.logging_class_info = {
+                    klass:              klass,
+                    instance_prop_name: get_logging_instance_prop_name(klass, description),
+                    message_prop_name:  get_logging_message_prop_name(klass, description)
+                };
+
+                return;
             }
         }
 
@@ -453,6 +548,13 @@ package {
 
                         break;
                     }
+
+                    var logging_instance: * = this.logging_class_info.klass[this.logging_class_info.instance_prop_name];
+
+                    var message: * = logging_instance[this.logging_class_info.message_prop_name];
+
+                    var used_port: * = parseInt(message.substring(message.lastIndexOf("(") + 1, message.lastIndexOf(")")));
+                    this.main_ports.push(used_port);
 
                     socket.close();
                     instance.reset();
