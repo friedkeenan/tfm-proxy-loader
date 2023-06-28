@@ -22,6 +22,8 @@ package {
     import flash.system.Capabilities;
 
     public class TFMProxyLoader extends Sprite {
+        private static const BUTTON_PADDING: * = 30;
+
         private static var PROXY_INFO: String = "localhost:11801";
 
         private var final_loader: Loader;
@@ -40,6 +42,52 @@ package {
 
         public function TFMProxyLoader() {
             super();
+
+            var transformice: * = new GameButton(this, "Transformice", "http://www.transformice.com/Transformice.swf", 0, 75, 0x6A7495);
+
+            var deadmaze:   * = new GameButton(this, "Dead Maze",  "http://www.deadmaze.com/alpha/deadmeat.swf", transformice.width, 75, 0x000000);
+            var bouboum:    * = new GameButton(this, "Bouboum",    "http://www.bouboum.com/Transformice.swf",    transformice.width, 75, 0x615F44);
+            var nekodancer: * = new GameButton(this, "Nekodancer", "http://www.nekodancer.com/Transformice.swf", transformice.width, 75, 0x048895);
+
+            var fortoresse: * = new GameButton(
+                this,
+                "Fortoresse",
+                "http://data.atelier801.com/x_forteresse/Transformice.swf",
+                transformice.width,
+                75,
+                0xB7B7B7
+            );
+
+            this.addChild(transformice);
+            this.addChild(deadmaze);
+            this.addChild(bouboum);
+            this.addChild(nekodancer);
+            this.addChild(fortoresse);
+
+            transformice.x = (stage.stageWidth  - transformice.width)  / 2;
+            transformice.y = (stage.stageHeight - transformice.height) / 2;
+
+            deadmaze.x = BUTTON_PADDING;
+            deadmaze.y = BUTTON_PADDING;
+
+            bouboum.x = stage.stageWidth - bouboum.width - BUTTON_PADDING;
+            bouboum.y = BUTTON_PADDING;
+
+            nekodancer.x = BUTTON_PADDING;
+            nekodancer.y = stage.stageHeight - nekodancer.height - BUTTON_PADDING;
+
+            fortoresse.x = stage.stageWidth - fortoresse.width - BUTTON_PADDING;
+            fortoresse.y = stage.stageHeight - fortoresse.height - BUTTON_PADDING;
+        }
+
+        private function clear_children() : void {
+            while (this.numChildren > 0) {
+                this.removeChildAt(0);
+            }
+        }
+
+        public function load_game(url: String) : void {
+            this.clear_children();
 
             var steamworks_class: Class = null;
             try {
@@ -70,13 +118,9 @@ package {
             var loader: * = new URLLoader();
             loader.dataFormat = "binary";
 
-            var ctx: * = new LoaderContext();
-            ctx.allowCodeImport = true;
-            ctx.applicationDomain = ApplicationDomain.currentDomain;
-
             loader.addEventListener(Event.COMPLETE, this.game_data_loaded);
 
-            loader.load(new URLRequest("http://www.transformice.com/Transformice.swf?d=" + new Date().getTime()));
+            loader.load(new URLRequest(url));
         }
 
         private function cleanup_steam(event: Event) : void {

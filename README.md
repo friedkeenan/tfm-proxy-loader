@@ -1,6 +1,6 @@
 # TFM Proxy Loader
 
-A custom loader for the Transformice client which connects to a local proxy.
+A custom loader for Transformice and other Atelier 801 games which forces the client to connect to a local proxy.
 
 ## Building
 
@@ -10,17 +10,39 @@ If you wish to save yourself the hassle, then there is also a pre-built SWF in t
 
 ## Usage
 
-To use this loader, simply replace the normal SWF you use for the game with the `TFMProxyLoader.swf` file. If using the Steam version of Transformice, this means opening the local files for the game and replacing the contained `Transformice.swf` file with the `TFMProxyLoader.swf` one (renaming it to `Transformice.swf`).
+To use this loader, you need to load the `TFMProxyLoader.swf` file. If you're using the Steam version of Transformice, this means you should open the local files for the game and replace the contained `Transformice.swf` file with the `TFMProxyLoader.swf` one (renaming it to `Transformice.swf`).
 
-By default, the game will try to connect to `localhost` on port `11801`, so you should run a proxy listening there, for instance a proxy from [caseus](https://github.com/friedkeenan/caseus). Then, you should just launch the game normally, and it will connect to the proxy as if connecting to the normal server. From there the proxy can do whatever it wants.
+Upon loading, there will be buttons for the following games:
 
-It is recommended to run the loader as an AIR application (which the Steam version of the game does), because otherwise the game will request a socket policy file for `localhost:11801` (following the normal flow of trying port `843` first and then trying the destination port, `11801`). If you know a way of disabling this behavior please let me know.
+- Transformice
+- Dead Maze
+- Bouboum
+- Nekodancer
+- Fortoresse
+
+Clicking a button will load that game and make it connect to `localhost` on port `11801`. You should run a proxy listening there, for instance a proxy from [caseus](https://github.com/friedkeenan/caseus). The game will launch normally, and it will connect to the proxy as if connecting to the normal server.
+
+## Dealing with Flash's Security Measures
+
+If you run the loader in an AIR runtime, like the Steam version of Transformice does, then you can skip this section. Otherwise, there are additional security-related things to fuss about with.
+
+When not running in an AIR runtime, the loader will require a policy file for the domain of the game being loaded. All games have this (for instance, Transformice's: https://www.transformice.com/crossdomain.xml), *except* for Fortoresse, causing it to fail to load. Additionally every game will request a socket policy file for `localhost:11801` (following the normal flow of trying port `843` first and then trying the destination port, `11801`).
+
+If you're using the standalone projector and running the loader from a file however, you can disable all that behavior. You can place a file at the corresponding location for your platform:
+
+- Windows: `%AppData%/Macromedia/Flash Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
+- MacOS: `~/Library/Preferences/Macromedia/Flash Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
+- Linux: `~/.macromedia/Flash_Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
+
+The file's contents should be the path of the directory which contains the proxy loader, so for instance if the loader's path is `/path/to/TFMProxyLoader.swf`, then the contents of the config file at the above location should be `/path/to`.
+
+This will allow Fortoresse to load and stop all the games from requesting a socket policy file. If you know any other way to accomplish this, please let me know.
 
 ## Extension Packets
 
 The loader sends certain custom packets which are not included in the vanilla protocol. These packets are called "extension" packets and have the following format:
 
-- Their ID is `(255, 255)`. This seems to be safe from the game.
+- Their ID is `(255, 255)`. This seems to be safe from the vanilla protocol.
 - The packet body contains a nested packet.
     - The data starts with a string (in Actionscript think `writeUTF`/`readUTF`), representing the ID of the nested packet.
     - The rest of the data is the packet body of the nested packet, marshaled according to the nested ID.

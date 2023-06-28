@@ -4,6 +4,8 @@
     "compilerOptions": {
         "output": "bin/TFMProxyLoader.swf",
 
+        "default-background-color": "#53A078",
+
         /* Same as Transformice. */
         "swf-version": 22,
         "default-size": {
