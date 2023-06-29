@@ -238,6 +238,10 @@ package {
             var domain: * = game.contentLoaderInfo.applicationDomain;
             for each(var class_name: String in domain.getQualifiedDefinitionNames()) {
                 var klass: * = domain.getDefinition(class_name);
+                if (klass == null || klass == undefined) {
+                    continue;
+                }
+
                 if (klass.constructor != Class) {
                     continue;
                 }
@@ -331,6 +335,10 @@ package {
                 */
 
                 var klass: * = domain.getDefinition(class_name);
+                if (klass == null || klass == undefined) {
+                    continue;
+                }
+
                 if (klass.constructor != Class) {
                     continue;
                 }
