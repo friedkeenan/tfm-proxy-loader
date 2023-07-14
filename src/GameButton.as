@@ -58,6 +58,12 @@ package {
         }
 
         private function load_game(event: Event) : void {
+            var shared: * = this.proxy_loader.shared_data();
+
+            shared.data.last_game_url = this.url;
+
+            shared.flush();
+
             this.proxy_loader.load_game(this.url);
         }
     }

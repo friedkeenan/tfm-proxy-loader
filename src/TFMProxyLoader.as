@@ -20,6 +20,8 @@ package {
     */
     import flash.desktop.NativeApplication;
     import flash.system.Capabilities;
+    import flash.events.KeyboardEvent;
+    import flash.net.SharedObject;
 
     public class TFMProxyLoader extends Sprite {
         private static const BUTTON_PADDING: * = 30;
@@ -43,6 +45,29 @@ package {
         public function TFMProxyLoader() {
             super();
 
+            this.setup_buttons();
+
+            this.stage.addEventListener(KeyboardEvent.KEY_DOWN, this.load_last_game_url);
+        }
+
+        public function shared_data() : SharedObject {
+            return SharedObject.getLocal("TFMProxyLoader");
+        }
+
+        private function load_last_game_url(event: KeyboardEvent) : void {
+            /* Ignore key presses that eren't 'Enter'. */
+            if (event.keyCode != 13) {
+                return;
+            }
+
+            var shared: * = this.shared_data();
+
+            if (shared.data.last_game_url != null) {
+                this.load_game(shared.data.last_game_url);
+            }
+        }
+
+        private function setup_buttons() : void {
             var transformice: * = new GameButton(this, "Transformice", "http://www.transformice.com/Transformice.swf", 0, 75, 0x6A7495);
 
             var deadmaze:   * = new GameButton(this, "Dead Maze",  "http://www.deadmaze.com/alpha/deadmeat.swf", transformice.width, 75, 0x000000);
@@ -64,30 +89,36 @@ package {
             this.addChild(nekodancer);
             this.addChild(fortoresse);
 
-            transformice.x = (stage.stageWidth  - transformice.width)  / 2;
-            transformice.y = (stage.stageHeight - transformice.height) / 2;
+            transformice.x = (this.stage.stageWidth  - transformice.width)  / 2;
+            transformice.y = (this.stage.stageHeight - transformice.height) / 2;
 
             deadmaze.x = BUTTON_PADDING;
             deadmaze.y = BUTTON_PADDING;
 
-            bouboum.x = stage.stageWidth - bouboum.width - BUTTON_PADDING;
+            bouboum.x = this.stage.stageWidth - bouboum.width - BUTTON_PADDING;
             bouboum.y = BUTTON_PADDING;
 
             nekodancer.x = BUTTON_PADDING;
-            nekodancer.y = stage.stageHeight - nekodancer.height - BUTTON_PADDING;
+            nekodancer.y = this.stage.stageHeight - nekodancer.height - BUTTON_PADDING;
 
-            fortoresse.x = stage.stageWidth - fortoresse.width - BUTTON_PADDING;
-            fortoresse.y = stage.stageHeight - fortoresse.height - BUTTON_PADDING;
+            fortoresse.x = this.stage.stageWidth - fortoresse.width - BUTTON_PADDING;
+            fortoresse.y = this.stage.stageHeight - fortoresse.height - BUTTON_PADDING;
         }
 
-        private function clear_children() : void {
+        private function remove_children() : void {
             while (this.numChildren > 0) {
                 this.removeChildAt(0);
             }
         }
 
+        private function remove_gui() : void {
+            this.stage.removeEventListener(KeyboardEvent.KEY_DOWN, this.load_last_game_url);
+
+            this.remove_children();
+        }
+
         public function load_game(url: String) : void {
-            this.clear_children();
+            this.remove_gui();
 
             var steamworks_class: Class = null;
             try {
