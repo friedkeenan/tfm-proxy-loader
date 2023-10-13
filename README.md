@@ -46,7 +46,7 @@ This will allow Fortoresse to load and stop all the games from requesting a sock
 
 The proxy loader has a different size than the various vanilla loaders do. This is of note, because the handshake packet includes the value of `stage.loaderInfo.bytes.length`, corresponding to the uncompressed size of the original loader SWF, and if the server receives an unexpected value for this field, then it will close the connection and the game will display an "Incorrect version" message. Therefore the proxy which the loader connects to should take care to replace this value with a valid size.
 
-A size of `0x1FBD` will work for all games, as this is the corresponding size for the `TransformiceAIR.swf` file in the standalone Windows version, which can be used to launch all games.
+A size of `0x1FBD` will work for all games, as this is the corresponding size for the `TransformiceAIR.swf` file in the Windows standalone version, which can be used to launch all games.
 
 ## Extension Packets
 
