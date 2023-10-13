@@ -26,23 +26,27 @@ Additionally, pressing the 'Enter' key will load the game which was last loaded,
 
 ## Dealing with Flash's Security Measures
 
-If you run the loader in an AIR runtime, like the Steam version of Transformice does, then you can skip this section. Otherwise, there are additional security-related things to fuss about with.
+None of the following section applies when the loader is run in an AIR runtime, like the Steam version of Transformice is. Otherwise, there are additional security-related things to fuss about with.
 
-When not running in an AIR runtime, the loader will require a policy file for the domain of the game being loaded. All games have this (for instance, Transformice's: https://www.transformice.com/crossdomain.xml), *except* for Fortoresse, causing it to fail to load. Additionally every game will request a socket policy file for `localhost:11801` (following the normal flow of trying port `843` first and then trying the destination port, `11801`).
+When not running in an AIR runtime, the loader will require a URL policy file for the domain of the game being loaded. All games have this (for instance, Transformice's: https://www.transformice.com/crossdomain.xml), *except* for Fortoresse, causing it to fail to load. Additionally every game will request a socket policy file for `localhost:11801`.
 
-If you're using the standalone projector and running the loader from a file however, you can disable all that behavior. You can place a file at the corresponding location for your platform:
+When the game requests a socket policy file for `localhost:11801`, first it will try the port `843`. Failing that, it will try the port `10801`, and if that also fails it will finally try the destination port, `11801`. Therefore a socket policy server can be run on port `10801`, removing the need for the end user to disable any security features (for games other than Fortoresse), and allowing port `11801` to be dedicated to typical packet flow.
+
+If you're using the standalone projector and running the loader from a file however, you can disable all that fuss about policy files. To do so, you can place a file at the corresponding location for your platform:
 
 - Windows: `%AppData%/Macromedia/Flash Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
 - MacOS: `~/Library/Preferences/Macromedia/Flash Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
 - Linux: `~/.macromedia/Flash_Player/#Security/FlashPlayerTrust/TFMProxyLoader.cfg`
 
-The file's contents should be the path of the directory which contains the proxy loader, so for instance if the loader's path is `/path/to/TFMProxyLoader.swf`, then the contents of the config file at the above location should be `/path/to`.
+The file's contents should be the path of the directory which contains the proxy loader SWF, so for instance if the loader's path is `/path/to/TFMProxyLoader.swf`, then the contents of the config file at the above location should be `/path/to`.
 
-This will allow Fortoresse to load and stop all the games from requesting a socket policy file. If you know any other way to accomplish this, please let me know.
+This will allow Fortoresse to load and stop all the games from requesting a socket policy file. If you know any other way to accomplish either of those things, please let me know.
 
 ## The Handshake Packet
 
 The proxy loader has a different size than the various vanilla loaders do. This is of note, because the handshake packet includes the value of `stage.loaderInfo.bytes.length`, corresponding to the uncompressed size of the original loader SWF, and if the server receives an unexpected value for this field, then it will close the connection and the game will display an "Incorrect version" message. Therefore the proxy which the loader connects to should take care to replace this value with a valid size.
+
+A size of `0x1FBD` will work for all games, as this is the corresponding size for the `TransformiceAIR.swf` file in the standalone Windows version, which can be used to launch all games.
 
 ## Extension Packets
 

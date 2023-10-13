@@ -22,11 +22,13 @@ package {
     import flash.system.Capabilities;
     import flash.events.KeyboardEvent;
     import flash.net.SharedObject;
+    import flash.system.Security;
 
     public class TFMProxyLoader extends Sprite {
         private static const BUTTON_PADDING: * = 30;
 
-        private static var PROXY_INFO: String = "localhost:11801";
+        private static var PROXY_INFO:      String = "localhost:11801";
+        private static var POLICY_FILE_URL: String = "xmlsocket://localhost:10801"
 
         private var final_loader: Loader;
 
@@ -44,6 +46,8 @@ package {
 
         public function TFMProxyLoader() {
             super();
+
+            Security.loadPolicyFile(POLICY_FILE_URL);
 
             this.setup_buttons();
 
