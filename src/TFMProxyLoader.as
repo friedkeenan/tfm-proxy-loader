@@ -36,7 +36,8 @@ package {
         private var connection_class_info: *;
 
         /* NOTE: Only used for Transformice. */
-        private var real_socket_prop_name: String = null;
+        private var socket_key_name:  String = null;
+        private var socket_dict_name: String = null;
 
         private var main_connection: *;
         private var main_socket: Socket;
@@ -343,10 +344,10 @@ package {
             var description: * = describeType(klass);
 
             for each (var variable: * in description.elements("factory").elements("variable")) {
-                if (variable.attribute("type") == "flash.net::Socket") {
-                    this.real_socket_prop_name = variable.attribute("name");
-
-                    return;
+                if (variable.attribute("type") == "int") {
+                    this.socket_key_name = variable.attribute("name");
+                } else if (variable.attribute("type") == "flash.utils::Dictionary") {
+                    this.socket_dict_name = variable.attribute("name");
                 }
             }
         }
@@ -540,7 +541,10 @@ package {
                     to a single XOR, and since '0 ^ key == key', we
                     can get the auth key simply by calling the method.
                 */
-                var auth_key: int = cipher_method.call(document);
+                var auth_key: * = cipher_method.call(document);
+                if (auth_key.constructor != Number) {
+                    continue;
+                }
 
                 /*
                     Transformice has a method with the same signature
@@ -682,7 +686,9 @@ package {
 
         private function get_connection_socket(instance: *) : Socket {
             if (this.is_transformice) {
-                return instance[this.connection_class_info.socket_prop_name][this.real_socket_prop_name];
+                var adaptor: * = instance[this.connection_class_info.socket_prop_name];
+
+                return adaptor[this.socket_dict_name][adaptor[this.socket_key_name]];
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -690,7 +696,9 @@ package {
 
         private function set_connection_socket(instance: *, socket: Socket) : void {
             if (this.is_transformice) {
-                instance[this.connection_class_info.socket_prop_name][this.real_socket_prop_name] = socket;
+                var adaptor: * = instance[this.connection_class_info.socket_prop_name];
+
+                adaptor[this.socket_dict_name][adaptor[this.socket_key_name]] = socket;
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
