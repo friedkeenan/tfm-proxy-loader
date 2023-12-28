@@ -10,6 +10,10 @@ package {
     import flash.display.DisplayObjectContainer;
     import flash.net.Socket;
     import flash.utils.ByteArray;
+    import flash.system.Capabilities;
+    import flash.events.KeyboardEvent;
+    import flash.net.SharedObject;
+    import flash.system.Security;
 
     /*
         NOTE: We always import 'NativeApplication'
@@ -19,10 +23,6 @@ package {
         applications.
     */
     import flash.desktop.NativeApplication;
-    import flash.system.Capabilities;
-    import flash.events.KeyboardEvent;
-    import flash.net.SharedObject;
-    import flash.system.Security;
 
     public class TFMProxyLoader extends Sprite {
         private static const BUTTON_PADDING: * = 30;
@@ -36,7 +36,6 @@ package {
         private var connection_class_info: *;
 
         /* NOTE: Only used for Transformice. */
-        private var socket_key_name:  String = null;
         private var socket_dict_name: String = null;
 
         private var main_connection: *;
@@ -344,9 +343,7 @@ package {
             var description: * = describeType(klass);
 
             for each (var variable: * in description.elements("factory").elements("variable")) {
-                if (variable.attribute("type") == "Number") {
-                    this.socket_key_name = variable.attribute("name");
-                } else {
+                if (variable.attribute("type") == "*") {
                     this.socket_dict_name = variable.attribute("name");
                 }
             }
@@ -519,7 +516,7 @@ package {
                 /*
                     The method that ciphers the auth token is the only
                     one in the document class that is non-static, takes
-                    no parameters, and returns 'int'.
+                    no parameters, and returns our return type.
                 */
 
                 if (method.attribute("returnType") != auth_key_return) {
@@ -688,7 +685,11 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                return adaptor[this.socket_dict_name][int(adaptor[this.socket_key_name])];
+                for each (var value: * in adaptor[this.socket_dict_name]) {
+                    return value;
+                }
+
+                return null;
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -698,7 +699,11 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                adaptor[this.socket_dict_name][int(adaptor[this.socket_key_name])] = socket;
+                for (var key: * in adaptor[this.socket_dict_name]) {
+                    adaptor[this.socket_dict_name][key] = socket;
+
+                    break;
+                }
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
