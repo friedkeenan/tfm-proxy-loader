@@ -35,9 +35,6 @@ package {
         private var logging_class_info: *;
         private var connection_class_info: *;
 
-        /* NOTE: Only used for Transformice. */
-        private var socket_dict_name: String = null;
-
         private var main_connection: *;
         private var main_socket: Socket;
 
@@ -314,39 +311,20 @@ package {
             }
         }
 
-        private static function is_socket_class(klass: Class) : Boolean {
-            if (klass == Socket) {
-                return true;
+        private function is_socket_class(klass: Class) : Boolean {
+            if (!this.is_transformice) {
+                return klass == Socket;
             }
-
-            /*
-                Transformice wraps their socket in a dummy
-                user-defined class which inherits from 'Socket'.
-            */
 
             var description: * = describeType(klass);
 
-            for each (var parent: * in description.elements("factory").elements("extendsClass")) {
-                if (parent.attribute("type") == "flash.net::Socket") {
+            for each (var method: * in description.elements("factory").elements("method")) {
+                if (method.attribute("returnType") == "flash.net::Socket") {
                     return true;
                 }
             }
 
             return false;
-        }
-
-        private function process_socket_class(klass: Class) : void {
-            if (!this.is_transformice) {
-                return;
-            }
-
-            var description: * = describeType(klass);
-
-            for each (var variable: * in description.elements("factory").elements("variable")) {
-                if (variable.attribute("type") == "*") {
-                    this.socket_dict_name = variable.attribute("name");
-                }
-            }
         }
 
         private function get_socket_property(domain: ApplicationDomain, description: XML) : String {
@@ -357,11 +335,9 @@ package {
                     return null;
                 }
 
-                if (!is_socket_class(variable_type)) {
+                if (!this.is_socket_class(variable_type)) {
                     continue;
                 }
-
-                this.process_socket_class(variable_type);
 
                 return variable.attribute("name");
             }
@@ -685,11 +661,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                for each (var value: * in adaptor[this.socket_dict_name]) {
-                    return value;
-                }
-
-                return null;
+                return adaptor["index"][adaptor["pos"]]
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -699,11 +671,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                for (var key: * in adaptor[this.socket_dict_name]) {
-                    adaptor[this.socket_dict_name][key] = socket;
-
-                    break;
-                }
+                adaptor["index"][adaptor["pos"]] = socket;
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
