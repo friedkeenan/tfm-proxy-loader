@@ -661,7 +661,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                return adaptor["index"][adaptor["pos"]]
+                return adaptor["index"][adaptor["po"]]
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -671,7 +671,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                adaptor["index"][adaptor["pos"]] = socket;
+                adaptor["index"][adaptor["po"]] = socket;
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
