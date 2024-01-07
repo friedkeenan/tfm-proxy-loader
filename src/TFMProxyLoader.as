@@ -661,7 +661,13 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                return adaptor["index"][adaptor["po"]]
+                for each (var dict: * in adaptor) {
+                    for each (var socket: * in dict) {
+                        return socket;
+                    }
+                }
+
+                return null;
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -671,7 +677,13 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                adaptor["index"][adaptor["po"]] = socket;
+                for each (var dict: * in adaptor) {
+                    for (var key: * in dict) {
+                        dict[key] = socket;
+
+                        return;
+                    }
+                }
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
