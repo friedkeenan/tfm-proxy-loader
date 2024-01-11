@@ -663,7 +663,9 @@ package {
 
                 for each (var dict: * in adaptor) {
                     for each (var socket: * in dict) {
-                        return socket;
+                        if (socket is Socket) {
+                            return socket;
+                        }
                     }
                 }
 
@@ -679,9 +681,11 @@ package {
 
                 for each (var dict: * in adaptor) {
                     for (var key: * in dict) {
-                        dict[key] = socket;
+                        if (dict[key] is Socket) {
+                            dict[key] = socket;
 
-                        return;
+                            return;
+                        }
                     }
                 }
             } else {
