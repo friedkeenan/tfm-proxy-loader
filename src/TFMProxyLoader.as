@@ -46,6 +46,9 @@ package {
 
         private var is_transformice: Boolean = false;
 
+        /* NOTE: Only used for Transformice. */
+        private var socket_getter: String = null;
+
         public function TFMProxyLoader() {
             super();
 
@@ -320,6 +323,8 @@ package {
 
             for each (var method: * in description.elements("factory").elements("method")) {
                 if (method.attribute("returnType") == "flash.net::Socket") {
+                    this.socket_getter = method.attribute("name");
+
                     return true;
                 }
             }
@@ -661,15 +666,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                for each (var dict: * in adaptor) {
-                    for each (var socket: * in dict) {
-                        if (socket is Socket) {
-                            return socket;
-                        }
-                    }
-                }
-
-                return null;
+                return adaptor[this.socket_getter]();
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -679,9 +676,11 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
+                var old_socket: * = adaptor[this.socket_getter]();
+
                 for each (var dict: * in adaptor) {
                     for (var key: * in dict) {
-                        if (dict[key] is Socket) {
+                        if (dict[key] == old_socket) {
                             dict[key] = socket;
 
                             return;
