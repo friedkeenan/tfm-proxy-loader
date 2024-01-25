@@ -314,6 +314,23 @@ package {
             }
         }
 
+        private static function has_security_error_method(description: XML) : Boolean {
+            for each (var method: * in description.elements("factory").elements("method")) {
+                var params: * = method.elements("parameter");
+                if (params.length() != 1) {
+                    continue;
+                }
+
+                if (params[0].attribute("type") != "flash.events::SecurityErrorEvent") {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         private function is_socket_class(klass: Class) : Boolean {
             if (!this.is_transformice) {
                 return klass == Socket;
@@ -322,11 +339,17 @@ package {
             var description: * = describeType(klass);
 
             for each (var method: * in description.elements("factory").elements("method")) {
-                if (method.attribute("returnType") == "flash.net::Socket") {
-                    this.socket_getter = method.attribute("name");
-
-                    return true;
+                if (method.attribute("returnType") != "*") {
+                    return false;
                 }
+
+                if (method.elements("parameter").length() != 0) {
+                    return false;
+                }
+
+                this.socket_getter = method.attribute("name");
+
+                return true;
             }
 
             return false;
@@ -409,7 +432,8 @@ package {
                 /*
                     The connection class is the only one that only
                     inherits from 'Object', doesn't implement any
-                    interface, and has a non-static 'Socket' property.
+                    interface, and has a method which accepts a
+                    'SecurityErrorEvent'.
                 */
 
                 var klass: * = domain.getDefinition(class_name);
@@ -428,6 +452,10 @@ package {
                 }
 
                 if (description.elements("factory").elements("implementsInterface").length() != 0) {
+                    continue;
+                }
+
+                if (!has_security_error_method(description)) {
                     continue;
                 }
 
