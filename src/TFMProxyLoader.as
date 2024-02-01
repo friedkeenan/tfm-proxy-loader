@@ -47,7 +47,8 @@ package {
         private var is_transformice: Boolean = false;
 
         /* NOTE: Only used for Transformice. */
-        private var socket_getter: String = null;
+        private var socket_key_name:  String = null;
+        private var socket_dict_name: String = null;
 
         public function TFMProxyLoader() {
             super();
@@ -314,23 +315,6 @@ package {
             }
         }
 
-        private static function has_security_error_method(description: XML) : Boolean {
-            for each (var method: * in description.elements("factory").elements("method")) {
-                var params: * = method.elements("parameter");
-                if (params.length() != 1) {
-                    continue;
-                }
-
-                if (params[0].attribute("type") != "flash.events::SecurityErrorEvent") {
-                    continue;
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
         private function is_socket_class(klass: Class) : Boolean {
             if (!this.is_transformice) {
                 return klass == Socket;
@@ -338,21 +322,29 @@ package {
 
             var description: * = describeType(klass);
 
-            for each (var method: * in description.elements("factory").elements("method")) {
-                if (method.attribute("returnType") != "*") {
-                    return false;
+            for each (var parent: * in description.elements("factory").elements("extendsClass")) {
+                if (parent.attribute("type") == "flash.net::Socket") {
+                    return true;
                 }
-
-                if (method.elements("parameter").length() != 0) {
-                    return false;
-                }
-
-                this.socket_getter = method.attribute("name");
-
-                return true;
             }
 
             return false;
+        }
+
+        private function process_socket_class(klass: Class) : void {
+            if (!this.is_transformice) {
+                return;
+            }
+
+            var description: * = describeType(klass);
+
+            for each (var variable: * in description.elements("factory").elements("variable")) {
+                if (variable.attribute("type") == "int") {
+                    this.socket_key_name = variable.attribute("name");
+                } else if (variable.attribute("type") == "flash.utils::Dictionary") {
+                    this.socket_dict_name = variable.attribute("name");
+                }
+            }
         }
 
         private function get_socket_property(domain: ApplicationDomain, description: XML) : String {
@@ -366,6 +358,8 @@ package {
                 if (!this.is_socket_class(variable_type)) {
                     continue;
                 }
+
+                this.process_socket_class(variable_type);
 
                 return variable.attribute("name");
             }
@@ -452,10 +446,6 @@ package {
                 }
 
                 if (description.elements("factory").elements("implementsInterface").length() != 0) {
-                    continue;
-                }
-
-                if (!has_security_error_method(description)) {
                     continue;
                 }
 
@@ -694,7 +684,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                return adaptor[this.socket_getter]();
+                return adaptor[this.socket_dict_name][adaptor[this.socket_key_name]];
             }
 
             return instance[this.connection_class_info.socket_prop_name];
@@ -704,17 +694,7 @@ package {
             if (this.is_transformice) {
                 var adaptor: * = instance[this.connection_class_info.socket_prop_name];
 
-                var old_socket: * = adaptor[this.socket_getter]();
-
-                for each (var dict: * in adaptor) {
-                    for (var key: * in dict) {
-                        if (dict[key] == old_socket) {
-                            dict[key] = socket;
-
-                            return;
-                        }
-                    }
-                }
+                adaptor[this.socket_dict_name][adaptor[this.socket_key_name]] = socket;
             } else {
                 instance[this.connection_class_info.socket_prop_name] = socket;
             }
