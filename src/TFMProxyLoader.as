@@ -33,6 +33,8 @@ package {
         private var final_loader: Loader;
 
         private var logging_class_info: *;
+
+        private var socket_prop_name: String;
         private var connection_class_info: *;
 
         private var main_connection: *;
@@ -45,9 +47,6 @@ package {
         private var steam_okay: Boolean;
 
         private var is_transformice: Boolean = false;
-
-        /* NOTE: Only used for Transformice. */
-        private var socket_name: String = null;
 
         public function TFMProxyLoader() {
             super();
@@ -195,14 +194,20 @@ package {
             this.addEventListener(Event.ENTER_FRAME, this.get_connection_class_info);
         }
 
-        private function game_domain() : ApplicationDomain {
-            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+        private function game() : Loader {
+            return (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+        }
 
-            return game.contentLoaderInfo.applicationDomain;
+        private function game_domain() : ApplicationDomain {
+            return this.game().contentLoaderInfo.applicationDomain;
+        }
+
+        private function document() : * {
+            return this.game().getChildAt(0);
         }
 
         private function init_steam_info(event: Event) : void {
-            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+            var game: * = this.game();
 
             if (game.numChildren == 0) {
                 return;
@@ -279,7 +284,7 @@ package {
         }
 
         private function get_logging_class_info(event: Event) : void {
-            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+            var game: * = this.game();
 
             if (game.numChildren == 0) {
                 return;
@@ -314,56 +319,68 @@ package {
             }
         }
 
-        private function is_socket_class(klass: Class) : Boolean {
-            if (!this.is_transformice) {
-                return klass == Socket;
-            }
-
-            var description: * = describeType(klass);
-
-            for each (var parent: * in description.elements("factory").elements("extendsClass")) {
-                if (parent.attribute("type") == "flash.net::Socket") {
-                    return true;
+        private static function has_security_error_method(description: XML) : Boolean {
+            for each (var method: * in description.elements("factory").elements("method")) {
+                var params: * = method.elements("parameter");
+                if (params.length() != 1) {
+                    continue;
                 }
+
+                if (params[0].attribute("type") != "flash.events::SecurityErrorEvent") {
+                    continue;
+                }
+
+                return true;
             }
 
             return false;
         }
 
-        private function process_socket_class(klass: Class) : void {
-            if (!this.is_transformice) {
-                return;
-            }
-
-            var description: * = describeType(klass);
-
-            for each (var variable: * in description.elements("factory").elements("variable")) {
-                if (variable.attribute("type") == "flash.net::Socket") {
-                    this.socket_name = variable.attribute("name");
-
-                    return;
+        private function get_socket_method_name(description: XML) : String {
+            for each (var method: * in description.elements("method")) {
+                if (method.attribute("returnType") == "flash.net::Socket") {
+                    return method.attribute("name");
                 }
-            }
-        }
-
-        private function get_socket_property(domain: ApplicationDomain, description: XML) : String {
-            for each (var variable: * in description.elements("factory").elements("variable")) {
-                try {
-                    var variable_type: * = domain.getDefinition(variable.attribute("type"));
-                } catch (ReferenceError) {
-                    return null;
-                }
-
-                if (!this.is_socket_class(variable_type)) {
-                    continue;
-                }
-
-                this.process_socket_class(variable_type);
-
-                return variable.attribute("name");
             }
 
             return null;
+        }
+
+        private function get_transformice_socket_info() : void {
+            var document:    * = this.document();
+            var description: * = describeType(document);
+
+            var main_socket: * = document[this.get_socket_method_name(description)](1);
+
+            for each (var variable: * in description.elements("variable")) {
+                if (variable.attribute("type") != "flash.net::Socket") {
+                    continue;
+                }
+
+                var socket: * = document[variable.attribute("name")];
+
+                if (socket != main_socket) {
+                    continue;
+                }
+
+                this.socket_prop_name = variable.attribute("name");
+
+                return;
+            }
+        }
+
+        private function get_socket_info(description: XML) : void {
+            if (this.is_transformice) {
+                this.get_transformice_socket_info();
+            } else {
+                for each (var variable: * in description.elements("factory").elements("variable")) {
+                    if (variable.attribute("type") == "flash.net::Socket") {
+                        this.socket_prop_name = variable.attribute("name");
+
+                        return;
+                    }
+                }
+            }
         }
 
         private static function get_connection_instance_names(description: XML) : Array {
@@ -412,7 +429,7 @@ package {
         }
 
         private function get_connection_class_info(event: Event) : void {
-            var game: * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
+            var game: * = this.game();
 
             if (game.numChildren == 0) {
                 return;
@@ -448,10 +465,11 @@ package {
                     continue;
                 }
 
-                var socket_prop_name: String = this.get_socket_property(domain, description);
-                if (socket_prop_name == null) {
+                if (!has_security_error_method(description)) {
                     continue;
                 }
+
+                this.get_socket_info(description);
 
                 var address_prop_name:         * = get_address_property(description);
                 var possible_ports_prop_names: * = get_possible_ports_properties(description);
@@ -459,7 +477,6 @@ package {
 
                 this.connection_class_info = {
                     klass:                     klass,
-                    socket_prop_name:          socket_prop_name,
                     address_prop_name:         address_prop_name,
                     possible_ports_prop_names: possible_ports_prop_names,
                     instance_names:            instance_names
@@ -472,8 +489,7 @@ package {
         }
 
         private function get_packet_key_sources() : Array {
-            var game:     * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
-            var document: * = game.getChildAt(0);
+            var document: * = this.document();
 
             var description: * = describeType(document);
             for each (var variable: * in description.elements("variable")) {
@@ -504,8 +520,7 @@ package {
         }
 
         private function get_auth_key() : int {
-            var game:     * = (this.final_loader.content as DisplayObjectContainer).getChildAt(0) as Loader;
-            var document: * = game.getChildAt(0);
+            var document: * = this.document();
 
             var auth_key_return: * = this.is_transformice ? "*" : "int";
 
@@ -681,21 +696,17 @@ package {
 
         private function get_connection_socket(instance: *) : Socket {
             if (this.is_transformice) {
-                var adaptor: * = instance[this.connection_class_info.socket_prop_name];
-
-                return adaptor[this.socket_name];
+                return this.document()[this.socket_prop_name];
             }
 
-            return instance[this.connection_class_info.socket_prop_name];
+            return instance[this.socket_prop_name];
         }
 
         private function set_connection_socket(instance: *, socket: Socket) : void {
             if (this.is_transformice) {
-                var adaptor: * = instance[this.connection_class_info.socket_prop_name];
-
-                adaptor[this.socket_name] = socket;
+                this.document()[this.socket_prop_name] = socket;
             } else {
-                instance[this.connection_class_info.socket_prop_name] = socket;
+                instance[this.socket_prop_name] = socket;
             }
         }
 
