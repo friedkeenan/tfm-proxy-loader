@@ -14,6 +14,7 @@ package {
     import flash.events.KeyboardEvent;
     import flash.net.SharedObject;
     import flash.system.Security;
+    import flash.utils.Dictionary;
 
     /*
         NOTE: We always import 'NativeApplication'
@@ -47,6 +48,9 @@ package {
         private var steam_okay: Boolean;
 
         private var is_transformice: Boolean = false;
+
+        /* NOTE: Only  used for Transformice. */
+        private var socket_dict_name: String;
 
         public function TFMProxyLoader() {
             super();
@@ -350,20 +354,18 @@ package {
             var document:    * = this.document();
             var description: * = describeType(document);
 
-            var main_socket: * = document[this.get_socket_method_name(description)](1);
-
             for each (var variable: * in description.elements("variable")) {
-                if (variable.attribute("type") != "flash.net::Socket") {
+                if (variable.attribute("type") != "*") {
                     continue;
                 }
 
-                var socket: * = document[variable.attribute("name")];
+                var maybe_dictionary: * = document[variable.attribute("name")];
 
-                if (socket != main_socket) {
+                if (!(maybe_dictionary is Dictionary)) {
                     continue;
                 }
 
-                this.socket_prop_name = variable.attribute("name");
+                this.socket_dict_name = variable.attribute("name");
 
                 return;
             }
@@ -696,7 +698,7 @@ package {
 
         private function get_connection_socket(instance: *) : Socket {
             if (this.is_transformice) {
-                return this.document()[this.socket_prop_name];
+                return this.document()[this.socket_dict_name][1];
             }
 
             return instance[this.socket_prop_name];
@@ -704,7 +706,7 @@ package {
 
         private function set_connection_socket(instance: *, socket: Socket) : void {
             if (this.is_transformice) {
-                this.document()[this.socket_prop_name] = socket;
+                this.document()[this.socket_dict_name][1] = socket;
             } else {
                 instance[this.socket_prop_name] = socket;
             }
