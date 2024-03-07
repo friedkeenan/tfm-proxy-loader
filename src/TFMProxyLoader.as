@@ -340,16 +340,6 @@ package {
             return false;
         }
 
-        private function get_socket_method_name(description: XML) : String {
-            for each (var method: * in description.elements("method")) {
-                if (method.attribute("returnType") == "flash.net::Socket") {
-                    return method.attribute("name");
-                }
-            }
-
-            return null;
-        }
-
         private function get_transformice_socket_info() : void {
             var document:    * = this.document();
             var description: * = describeType(document);
