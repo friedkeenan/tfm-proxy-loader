@@ -340,24 +340,40 @@ package {
             return false;
         }
 
+        private function get_socket_method_name(description: XML) : String {
+            for each (var method: * in description.elements("method")) {
+                if (method.attribute("returnType") == "flash.net::Socket") {
+                    return method.attribute("name");
+                }
+            }
+
+            return null;
+        }
+
         private function get_transformice_socket_info() : void {
             var document:    * = this.document();
             var description: * = describeType(document);
 
+            var socket: * = document[this.get_socket_method_name(description)](-1);
+
             for each (var variable: * in description.elements("variable")) {
-                if (variable.attribute("type") != "*") {
+                if (variable.attribute("type") != "flash.utils::Dictionary") {
                     continue;
                 }
 
-                var maybe_dictionary: * = document[variable.attribute("name")];
+                var dictionary: * = document[variable.attribute("name")];
 
-                if (!(maybe_dictionary is Dictionary)) {
+                if (dictionary == null) {
                     continue;
                 }
 
-                this.socket_dict_name = variable.attribute("name");
+                if (dictionary[-1] == socket) {
+                    delete dictionary[-1];
 
-                return;
+                    this.socket_dict_name = variable.attribute("name");
+
+                    return;
+                }
             }
         }
 
@@ -688,7 +704,11 @@ package {
 
         private function get_connection_socket(instance: *) : Socket {
             if (this.is_transformice) {
-                return this.document()[this.socket_dict_name][1];
+                for each (var socket: * in this.document()[this.socket_dict_name]) {
+                    return socket;
+                }
+
+                return null;
             }
 
             return instance[this.socket_prop_name];
@@ -696,10 +716,24 @@ package {
 
         private function set_connection_socket(instance: *, socket: Socket) : void {
             if (this.is_transformice) {
-                this.document()[this.socket_dict_name][1] = socket;
+                var dictionary: * = this.document()[this.socket_dict_name];
+
+                for (var key: * in dictionary) {
+                    dictionary[key] = socket;
+
+                    return;
+                }
             } else {
                 instance[this.socket_prop_name] = socket;
             }
+        }
+
+        private function reset_socket_state() : void {
+            if (!this.is_transformice) {
+                return;
+            }
+
+            this.document()[this.socket_dict_name] = new Dictionary();
         }
 
         private function try_replace_connection(event: Event) : void {
@@ -740,6 +774,7 @@ package {
 
                     socket.close();
                     instance.reset();
+                    this.reset_socket_state();
 
                     closed_socket = true;
                 }
