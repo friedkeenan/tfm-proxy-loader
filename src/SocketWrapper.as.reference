@@ -3,6 +3,11 @@ package {
     import flash.utils.ByteArray;
 
     public class SocketWrapper extends Socket {
+        /*
+            NOTE: This class serves as a reference for what
+            the generated wrapper socket class looks like.
+        */
+
         private var wrapped: Socket;
 
         private var handshake_sent: Boolean = false;
