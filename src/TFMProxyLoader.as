@@ -15,22 +15,6 @@ package {
     import flash.net.SharedObject;
     import flash.system.Security;
     import flash.utils.Dictionary;
-    import org.as3commons.bytecode.emit.IAbcBuilder;
-    import org.as3commons.bytecode.emit.IPackageBuilder;
-    import org.as3commons.bytecode.emit.IClassBuilder;
-    import org.as3commons.bytecode.abc.QualifiedName;
-    import org.as3commons.bytecode.abc.LNamespace;
-    import org.as3commons.bytecode.abc.enum.NamespaceKind;
-    import org.as3commons.bytecode.emit.impl.AbcBuilder;
-    import org.as3commons.bytecode.emit.ICtorBuilder;
-    import org.as3commons.bytecode.abc.enum.Opcode;
-    import org.as3commons.bytecode.emit.IAccessorBuilder;
-    import org.as3commons.reflect.AccessorAccess;
-    import org.as3commons.bytecode.emit.IMethodBuilder;
-    import org.as3commons.bytecode.emit.event.AccessorBuilderEvent;
-    import org.as3commons.bytecode.emit.impl.MethodBuilder;
-    import org.as3commons.bytecode.emit.enum.MemberVisibility;
-    import org.as3commons.bytecode.abc.Op;
 
     /*
         NOTE: We always import 'NativeApplication'
@@ -53,8 +37,6 @@ package {
 
         private var socket_prop_name: String;
         private var connection_class_info: *;
-
-        private var socket_wrapper_class: Class = null;
 
         private var main_connection: *;
         private var main_socket: Socket;
@@ -358,136 +340,9 @@ package {
             return false;
         }
 
-        private function build_leaker_socket(domain: ApplicationDomain, parent_name: String) : void {
-            var abc: IAbcBuilder = new AbcBuilder();
-            var pkg: IPackageBuilder = abc.definePackage("");
-
-            var cls: IClassBuilder = pkg.defineClass("SocketWrapper", parent_name);
-
-            cls.defineProperty("wrapped",                   "flash.net::Socket");
-            cls.defineProperty("handshake_sent",            "Boolean");
-            cls.defineProperty("before_handshake_callback", "Function");
-
-            var blank_namespace: * = new LNamespace(NamespaceKind.PACKAGE_NAMESPACE, "");
-
-            var wrapped:                   * = new QualifiedName("wrapped",                    blank_namespace);
-            var handshake_sent:            * = new QualifiedName("handshake_sent",             blank_namespace);
-            var before_handshake_callback: * = new QualifiedName("before_handshake_callback",  blank_namespace);
-
-            var socket_connected:  * = new QualifiedName("connected",  blank_namespace);
-            var socket_writeBytes: * = new QualifiedName("writeBytes", blank_namespace);
-
-            var constructor: ICtorBuilder = cls.defineConstructor();
-
-            constructor.defineArgument("flash.net::Socket");
-            constructor.defineArgument("Function");
-
-            /* Assign 'wrapped', 'handshake_sent', and 'before_handshake_callback'. */
-            constructor
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.pushscope)
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.constructsuper, [0])
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.getlocal_1)
-                .addOpcode(Opcode.setproperty,    [wrapped])
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.pushfalse)
-                .addOpcode(Opcode.setproperty,    [handshake_sent])
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.getlocal_2)
-                .addOpcode(Opcode.setproperty,    [before_handshake_callback])
-                .addOpcode(Opcode.returnvoid);
-
-            /* NOTE: We only override what we *absolutely* need to. */
-
-            var connected: IAccessorBuilder = cls.defineAccessor("connected", "Boolean");
-
-            connected.access = AccessorAccess.READ_ONLY;
-            connected.createPrivateProperty = false;
-
-            connected.addEventListener(AccessorBuilderEvent.BUILD_GETTER, function (event: AccessorBuilderEvent) : void {
-                var method: IMethodBuilder = new MethodBuilder("connected");
-
-                method.isOverride = true;
-                method.visibility = MemberVisibility.PUBLIC;
-                method.returnType = "Boolean";
-
-                /* Forward to wrapped 'connected'. */
-                method
-                    .addOpcode(Opcode.getlocal_0)
-                    .addOpcode(Opcode.pushscope)
-                    .addOpcode(Opcode.getlocal_0)
-                    .addOpcode(Opcode.getproperty, [wrapped])
-                    .addOpcode(Opcode.getproperty, [socket_connected])
-                    .addOpcode(Opcode.returnvalue);
-
-                event.builder = method;
-            });
-
-            var writeBytes: IMethodBuilder = cls.defineMethod("writeBytes");
-
-            writeBytes.isOverride = true;
-
-            writeBytes.defineArgument("flash.utils::ByteArray");
-            writeBytes.defineArgument("uint", true, 0);
-            writeBytes.defineArgument("uint", true, 0);
-
-            /*
-                Call 'before_handshake_callback' if we have not sent
-                the handshake, then forward onto wrapped 'writeBytes'.
-            */
-            var iftrue: * = new Op(Opcode.iftrue, [0]);
-            writeBytes
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.pushscope)
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.getproperty,  [handshake_sent])
-                .addOp(iftrue)
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.pushtrue)
-                .addOpcode(Opcode.setproperty,  [handshake_sent])
-                .addOpcode(Opcode.getlocal_0)
-                .addOpcode(Opcode.callpropvoid, [before_handshake_callback, 0])
-                .defineJump(iftrue, new Op(Opcode.getlocal_0))
-                .addOpcode(Opcode.getproperty,  [wrapped])
-                .addOpcode(Opcode.getlocal_1)
-                .addOpcode(Opcode.getlocal_2)
-                .addOpcode(Opcode.getlocal_3)
-                .addOpcode(Opcode.callpropvoid, [socket_writeBytes, 3])
-                .addOpcode(Opcode.returnvoid);
-
-            abc.addEventListener(Event.COMPLETE, this.loaded_socket_wrapper);
-            abc.buildAndLoad(domain, domain);
-        }
-
-        private function loaded_socket_wrapper(event: Event) : void {
-            this.socket_wrapper_class = this.game_domain().getDefinition("SocketWrapper") as Class;
-        }
-
-        private function is_socket_class(klass: Class) : Boolean {
-            var description: * = describeType(klass);
-
-            for each (var parent: * in description.elements("factory").elements("extendsClass")) {
-                if (parent.attribute("type") == "flash.net::Socket") {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private function get_socket_method_name(domain: ApplicationDomain, description: XML) : String {
+        private function get_socket_method_name(description: XML) : String {
             for each (var method: * in description.elements("method")) {
-                try {
-                    var return_type: * = domain.getDefinition(method.attribute("returnType"));
-                } catch (ReferenceError) {
-                    continue;
-                }
-
-                if (this.is_socket_class(return_type)) {
-                    this.build_leaker_socket(domain, method.attribute("returnType"));
-
+                if (method.attribute("returnType") == "flash.net::Socket") {
                     return method.attribute("name");
                 }
             }
@@ -495,11 +350,22 @@ package {
             return null;
         }
 
-        private function get_transformice_socket_info(domain: ApplicationDomain) : void {
+        private function get_socket_prop_name(description: XML) : void {
+            for each (var variable: * in description.elements("variable")) {
+                if (variable.attribute("type") == "flash.net::Socket") {
+                    this.socket_prop_name = variable.attribute("name");
+
+                    return;
+                }
+            }
+        }
+
+        private function get_transformice_socket_info() : void {
             var document:    * = this.document();
             var description: * = describeType(document);
 
-            var socket: * = document[this.get_socket_method_name(domain, description)](-1);
+            /* Load a socket into the dictionary. */
+            document[this.get_socket_method_name(description)](-1);
 
             for each (var variable: * in description.elements("variable")) {
                 if (variable.attribute("type") != "flash.utils::Dictionary") {
@@ -512,25 +378,30 @@ package {
                     continue;
                 }
 
-                if (dictionary[-1] == socket) {
+                var maybe_socket: * = dictionary[-1];
+                if (maybe_socket == null) {
+                    continue;
+                }
+
+                if (maybe_socket is Socket) {
                     delete dictionary[-1];
 
                     this.socket_dict_name = variable.attribute("name");
+
+                    this.get_socket_prop_name(describeType(maybe_socket));
 
                     return;
                 }
             }
         }
 
-        private function process_socket_info(domain: ApplicationDomain, description: XML) : void {
+        private function process_socket_info(description: XML) : void {
             if (this.is_transformice) {
-                this.get_transformice_socket_info(domain);
+                this.get_transformice_socket_info();
             } else {
                 for each (var variable: * in description.elements("factory").elements("variable")) {
                     if (variable.attribute("type") == "flash.net::Socket") {
                         this.socket_prop_name = variable.attribute("name");
-
-                        this.build_leaker_socket(domain, "flash.net::Socket");
 
                         return;
                     }
@@ -624,7 +495,7 @@ package {
                     continue;
                 }
 
-                this.process_socket_info(domain, description);
+                this.process_socket_info(description);
 
                 var address_prop_name:         * = get_address_property(description);
                 var possible_ports_prop_names: * = get_possible_ports_properties(description);
@@ -852,7 +723,7 @@ package {
         private function get_connection_socket(instance: *) : Socket {
             if (this.is_transformice) {
                 for each (var socket: * in this.document()[this.socket_dict_name]) {
-                    return socket;
+                    return socket[this.socket_prop_name];
                 }
 
                 return null;
@@ -866,7 +737,7 @@ package {
                 var dictionary: * = this.document()[this.socket_dict_name];
 
                 for (var key: * in dictionary) {
-                    dictionary[key] = socket;
+                    dictionary[key][this.socket_prop_name] = socket;
 
                     return;
                 }
@@ -884,10 +755,6 @@ package {
         }
 
         private function try_replace_connection(event: Event) : void {
-            if (this.socket_wrapper_class == null) {
-                return;
-            }
-
             var klass:             * = this.connection_class_info.klass;
             var address_prop_name: * = this.connection_class_info.address_prop_name;
 
@@ -936,7 +803,7 @@ package {
             this.main_connection = new klass(PROXY_INFO, false);
             this.main_socket     = this.get_connection_socket(this.main_connection);
 
-            this.set_connection_socket(this.main_connection, new this.socket_wrapper_class(this.main_socket, this.before_handshake));
+            this.set_connection_socket(this.main_connection, new SocketWrapper(this.main_socket, this.before_handshake));
 
             this.removeEventListener(Event.ENTER_FRAME, this.try_replace_connection);
         }
