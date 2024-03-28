@@ -11,13 +11,13 @@ package {
         private static const GLOW: * = new GlowFilter(0xFFFFFF, 1.0, 15.0, 15.0);
 
         private var proxy_loader: TFMProxyLoader;
-        private var url: String;
+        private var game_loader:  Class;
 
-        public function GameButton(proxy_loader: TFMProxyLoader, name: String, url: String, width: uint, height: uint, color: uint) {
+        public function GameButton(proxy_loader: TFMProxyLoader, name: String, game_loader: Class, width: uint, height: uint, color: uint) {
             super();
 
             this.proxy_loader = proxy_loader;
-            this.url = url;
+            this.game_loader  = game_loader;
 
             var label_format: * = new TextFormat();
             label_format.size = 24;
@@ -58,13 +58,7 @@ package {
         }
 
         private function load_game(event: Event) : void {
-            var shared: * = this.proxy_loader.shared_data();
-
-            shared.data.last_game_url = this.url;
-
-            shared.flush();
-
-            this.proxy_loader.load_game(this.url);
+            this.proxy_loader.load_game(this.game_loader);
         }
     }
 }
