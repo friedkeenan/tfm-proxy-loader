@@ -43,7 +43,7 @@ package loaders {
         private var socket_wrapper_class: Class = null;
 
         protected var socket_prop_name: String;
-        private var connection_class_info: *;
+        protected var connection_class_info: *;
 
         private var main_connection: *;
         private var main_socket: Socket;
@@ -372,7 +372,7 @@ package loaders {
             this.socket_wrapper_class = this.game_domain().getDefinition("SocketWrapper") as Class;
         }
 
-        protected function process_socket_info(domain: ApplicationDomain, description: XML) : void {
+        protected function process_connection_info(domain: ApplicationDomain, description: XML) : void {
             for each (var variable: * in description.elements("factory").elements("variable")) {
                 if (variable.attribute("type") == "flash.net::Socket") {
                     this.socket_prop_name = variable.attribute("name");
@@ -401,20 +401,6 @@ package loaders {
             }
 
             return names;
-        }
-
-        private static function get_address_property(description: XML) : String {
-            for each (var variable: * in description.elements("factory").elements("variable")) {
-                /*
-                    NOTE: There are two non-static properties which
-                    are strings, but they both hold the same value.
-                */
-                if (variable.attribute("type") == "String") {
-                    return variable.attribute("name");
-                }
-            }
-
-            return null;
         }
 
         private static function get_possible_ports_properties(description: XML) : Array {
@@ -470,15 +456,13 @@ package loaders {
                     continue;
                 }
 
-                this.process_socket_info(domain, description);
+                this.process_connection_info(domain, description);
 
-                var address_prop_name:         * = get_address_property(description);
                 var possible_ports_prop_names: * = get_possible_ports_properties(description);
                 var instance_names:            * = get_connection_instance_names(description);
 
                 this.connection_class_info = {
                     klass:                     klass,
-                    address_prop_name:         address_prop_name,
                     possible_ports_prop_names: possible_ports_prop_names,
                     instance_names:            instance_names
                 };
@@ -711,13 +695,35 @@ package loaders {
             /* Stub implementation. */
         }
 
+        protected function get_main_address(instance: *) : String {
+            var description: * = describeType(instance);
+
+            for each (var variable: * in description.elements("variable")) {
+                /*
+                    NOTE: There are multiple non-static String
+                    properties, but they hold the same value.
+                */
+
+                if (variable.attribute("type") == "String") {
+                    return instance[variable.attribute("name")];
+                }
+            }
+
+            return null;
+        }
+
+        protected function create_connection(address_info: String) : * {
+            var klass: Class = this.connection_class_info.klass;
+
+            return new klass(address_info, false);
+        }
+
         private function try_replace_connection(event: Event) : void {
             if (this.socket_wrapper_class == null) {
                 return;
             }
 
-            var klass:             * = this.connection_class_info.klass;
-            var address_prop_name: * = this.connection_class_info.address_prop_name;
+            var klass: * = this.connection_class_info.klass;
 
             var closed_socket: * = false;
             for each (var name: * in this.connection_class_info.instance_names) {
@@ -729,7 +735,7 @@ package loaders {
                 if (!closed_socket) {
                     var socket: * = this.get_connection_socket(instance);
 
-                    this.main_address = instance[address_prop_name];
+                    this.main_address = this.get_main_address(instance);
 
                     for each (var ports_name: * in this.connection_class_info.possible_ports_prop_names) {
                         var possible_ports: * = instance[ports_name];
@@ -751,7 +757,12 @@ package loaders {
                     var used_port: * = parseInt(message.substring(message.lastIndexOf("(") + 1, message.lastIndexOf(")")));
                     this.main_ports.push(used_port);
 
-                    socket.close();
+                    try {
+                        socket.close()
+                    } catch (e: Error) {
+                        /* ... */
+                    }
+
                     instance.reset();
                     this.reset_socket_state();
 
@@ -761,7 +772,7 @@ package loaders {
                 klass[name] = null;
             }
 
-            this.main_connection = new klass(PROXY_INFO, false);
+            this.main_connection = this.create_connection(PROXY_INFO);
             this.main_socket     = this.get_connection_socket(this.main_connection);
 
             this.set_connection_socket(this.main_connection, new this.socket_wrapper_class(this.main_socket, this.before_handshake));

@@ -6,6 +6,7 @@ package loaders {
     import flash.utils.Dictionary;
 
     public class TransformiceLoader extends GameLoader {
+        private var create_connection_method_name: String;
         private var socket_dict_name: String;
 
         public function TransformiceLoader() {
@@ -44,17 +45,36 @@ package loaders {
             return null;
         }
 
-        protected override function process_socket_info(domain: ApplicationDomain, _: XML) : void {
-            var document:    * = this.document();
-            var description: * = describeType(document);
+        private function get_create_connection_method_name(description: XML) : void {
+            for each (var method: * in description.elements("factory").elements("method")) {
+                var parameters: * = method.elements("parameter");
+                if (parameters.length() != 3) {
+                    continue;
+                }
+
+                if (parameters[0].attribute("type") != "String") {
+                    continue;
+                }
+
+                this.create_connection_method_name = method.attribute("name");
+
+                return;
+            }
+        }
+
+        protected override function process_connection_info(domain: ApplicationDomain, description: XML) : void {
+            this.get_create_connection_method_name(description);
+
+            var document: * = this.document();
+            var document_description: * = describeType(document);
 
             /* Load a socket into the dictionary. */
-            var real_socket: * = this.call_socket_method(domain, description, -1);
+            var real_socket: * = this.call_socket_method(domain, document_description, -1);
 
             var socket_type_name: * = getQualifiedClassName(real_socket);
             this.build_wrapper_socket(domain, socket_type_name);
 
-            for each (var variable: * in description.elements("variable")) {
+            for each (var variable: * in document_description.elements("variable")) {
                 if (variable.attribute("type") != "flash.utils::Dictionary") {
                     continue;
                 }
@@ -80,6 +100,48 @@ package loaders {
                     return;
                 }
             }
+        }
+
+        private function set_all_strings(instance: *, value: String) : void {
+            var description: * = describeType(instance);
+
+            for each (var variable: * in description.elements("variable")) {
+                if (variable.attribute("type") != "String") {
+                    continue;
+                }
+
+                instance[variable.attribute("name")] = value;
+            }
+        }
+
+        protected override function get_main_address(instance: *) : String {
+            var description: * = describeType(instance);
+
+            for each (var variable: * in description.elements("variable")) {
+                if (variable.attribute("type") != "String") {
+                    continue;
+                }
+
+                var value: * = instance[variable.attribute("name")];
+
+                if (value != "_nfs_801") {
+                    return value;
+                }
+            }
+
+            return null;
+        }
+
+        protected override function create_connection(address_info: String) : * {
+            var klass: * = this.connection_class_info.klass;
+
+            var instance: * = new klass();
+
+            set_all_strings(instance, "_nfs_801");
+
+            instance[this.create_connection_method_name](address_info, false);
+
+            return instance;
         }
 
         protected override function get_connection_socket(instance: *) : Socket {
