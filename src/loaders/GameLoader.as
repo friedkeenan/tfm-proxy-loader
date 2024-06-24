@@ -695,7 +695,7 @@ package loaders {
             /* Stub implementation. */
         }
 
-        protected function get_main_address(instance: *) : String {
+        protected function get_connected_address(instance: *) : String {
             var description: * = describeType(instance);
 
             for each (var variable: * in description.elements("variable")) {
@@ -735,7 +735,7 @@ package loaders {
                 if (!closed_socket) {
                     var socket: * = this.get_connection_socket(instance);
 
-                    this.main_address = this.get_main_address(instance);
+                    this.main_address = this.get_connected_address(instance);
 
                     for each (var ports_name: * in this.connection_class_info.possible_ports_prop_names) {
                         var possible_ports: * = instance[ports_name];

@@ -102,7 +102,7 @@ package loaders {
             }
         }
 
-        private function set_all_strings(instance: *, value: String) : void {
+        private static function set_all_strings(instance: *, value: String) : void {
             var description: * = describeType(instance);
 
             for each (var variable: * in description.elements("variable")) {
@@ -114,7 +114,7 @@ package loaders {
             }
         }
 
-        protected override function get_main_address(instance: *) : String {
+        protected override function get_connected_address(instance: *) : String {
             var description: * = describeType(instance);
 
             for each (var variable: * in description.elements("variable")) {
