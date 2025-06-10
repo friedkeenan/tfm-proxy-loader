@@ -9,8 +9,12 @@ package loaders {
         private var create_connection_method_name: String;
         private var socket_dict_name: String;
 
-        public function TransformiceLoader() {
-            super("http://www.transformice.com/Transformice.swf");
+        public function TransformiceLoader(url: String = null) {
+            if (url == null) {
+                url = "http://www.transformice.com/Transformice.swf";
+            }
+
+            super(url);
         }
 
         private function get_socket_prop_name(description: XML, type_name: String) : void {
